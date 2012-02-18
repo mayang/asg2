@@ -14,17 +14,23 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
    public static void main(String[] args) 
    {
 	   	String fileName = args[0];
-   		int width = Integer.parseInt(args[1]);
-   		int height = Integer.parseInt(args[2]);
-   		
-   		//int width = 960;
-   		//int height = 540;
+   		int quantLevel = Integer.parseInt(args[1]);
+   		if (quantLevel < 0 || quantLevel > 7) {
+   			System.out.println("Quantization level should be b/w 0 & 7");
+   		}
+   		int deliveryMode = Integer.parseInt(args[2]);
+   		int latency = Integer.parseInt(args[3]);
+
    		//String fileName = "../image1.rgb";
    		
-   		EncodeDecode ir = new EncodeDecode(width, height, fileName);
+   		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
    }
+ 
+   // fields
+   public static int width = 352; // width of image
+   public static int height = 288; // height of image
    
-   public EncodeDecode(int width, int height, String fileName)
+   public EncodeDecode(int quant, int mode, int lat, String fileName)
    {
 	
 	    BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -36,6 +42,7 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	
 		    long len = file.length();
 		    byte[] bytes = new byte[(int)len];
+		    
 		    
 		    int offset = 0;
 	        int numRead = 0;
@@ -73,7 +80,10 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);	
 	    JLabel label = new JLabel(new ImageIcon(img));
 	    label.setPreferredSize(new Dimension(width,height));
-	    frame.getContentPane().add(label, BorderLayout.CENTER);
+	    frame.getContentPane().add(label, BorderLayout.WEST);
+	    JLabel label2 = new JLabel(new ImageIcon(img));
+	    label2.setPreferredSize(new Dimension(width, height));
+	    frame.getContentPane().add(label2, BorderLayout.EAST);
 	    label.addMouseListener(this);
 	    label.addMouseMotionListener(this);
 
@@ -82,14 +92,6 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 		buttonPanel.setPreferredSize(new Dimension(width, 50));
 	    frame.getContentPane().add(buttonPanel, BorderLayout.SOUTH);
 		
-		MyButton splitButton = new MyButton("Split");
-		buttonPanel.add(splitButton, BorderLayout.WEST);
-
-		MyButton initButton = new MyButton("Initialize");
-		buttonPanel.add(initButton, BorderLayout.WEST);
-		
-		MyButton resetButton = new MyButton("Reset");
-		buttonPanel.add(resetButton, BorderLayout.WEST);
 		
 		MyButton closeButton = new MyButton("Close");
 		buttonPanel.add(closeButton, BorderLayout.WEST);	
