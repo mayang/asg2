@@ -25,10 +25,23 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
    }
- 
+   
+   
+   // 8x8 block 
+   class Block8x8 {
+	   byte[] bytes = new byte[64];
+   }
+   
+   
    // fields
    public static int width = 352; // width of image
    public static int height = 288; // height of image
+   public static int quantizationLevel; // 0 - 7
+   public static int  deliveryMode; // 1 || 2 || 3
+   public static int latency; // in milliseconds
+   public static Block8x8[] RBlocks; // blocks for R component
+   public static Block8x8[] GBlocks; // blocks for G component
+   public static Block8x8[] BBlocks; // blocks for B component
    
    public EncodeDecode(int quant, int mode, int lat, String fileName)
    {
@@ -50,13 +63,13 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	            offset += numRead;
 	        }
 	    
-	    		
+	    	// read all the bytes
 	    	int ind = 0;
 			for(int y = 0; y < height; y++){
 		
 				for(int x = 0; x < width; x++){
 			 
-					byte a = 0;
+					//byte a = 0;
 					byte r = bytes[ind];
 					byte g = bytes[ind+height*width];
 					byte b = bytes[ind+height*width*2]; 
@@ -68,6 +81,9 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 				}
 			}
 			
+			divideIntoBlocks(bytes);
+			
+			System.out.println("image divided");
 			
 	    } catch (FileNotFoundException e) {
 	      e.printStackTrace();
@@ -77,15 +93,29 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	    
 	    // Use a label to display the image
 	    JFrame frame = new JFrame();
-	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);	
+	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+	    // Show original image
 	    JLabel label = new JLabel(new ImageIcon(img));
 	    label.setPreferredSize(new Dimension(width,height));
 	    frame.getContentPane().add(label, BorderLayout.WEST);
-	    JLabel label2 = new JLabel(new ImageIcon(img));
+	    
+	    
+	    // place holder for 2nd image
+	    
+	    // test image
+	    BufferedImage img2 = new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
+	    int i=0;
+	    for (int y = 0; y < 8; ++y) {
+	    	for (int x = 0; x < 8; ++ x) {
+	    		int pix = 0xff000000 | ((RBlocks[0].bytes[i] & 0xff) << 16) | ((GBlocks[0].bytes[i] & 0xff) << 8) | (BBlocks[0].bytes[i] & 0xff);
+	    		img2.setRGB(x, y, pix);
+	    		++i;
+	    	}
+	    }
+	    
+	    JLabel label2 = new JLabel(new ImageIcon(img2));
 	    label2.setPreferredSize(new Dimension(width, height));
 	    frame.getContentPane().add(label2, BorderLayout.EAST);
-	    label.addMouseListener(this);
-	    label.addMouseMotionListener(this);
 
 	    // Bottons
 		JPanel buttonPanel = new JPanel();
@@ -99,6 +129,73 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	    frame.pack();
 	    frame.setVisible(true); 	
    }
+   
+   // divide each component (RGB) into 8x8 blocks
+   public void divideIntoBlocks(byte bytes[]) {  
+	   int ind; // track of the index in the block arrays
+	   int Ri, Gi, Bi; // keep track of compoent in byte array
+	   
+	   // make blocks
+	   RBlocks = new Block8x8[height*width];
+	   GBlocks = new Block8x8[height*width];
+	   BBlocks = new Block8x8[height*width];
+	   for (int i = 0; i < height*width; ++i) {
+		   RBlocks[i] = new Block8x8();
+		   GBlocks[i] = new Block8x8();
+		   BBlocks[i] = new Block8x8();
+	   }
+	   
+	   // starting locations in byte array
+	   Ri = 0; 
+	   Gi = 0 + width * height;
+	   Bi = 0 + width * height * 2;
+	   ind = 0;
+	   
+	   int cornerR = 0; // saves upper left corner of a block
+	   int cornerG = 0;
+	   int cornerB = 0;
+	   
+	   // for each row of 8x8 blocks
+	   for (int i = 0; i < height; i = i + 8) {
+		   
+		   // for each block in a row
+		   for (int j = 0; j < width; j = j + 8) {
+			   // save block's upper left corner
+			   cornerR = Ri;
+			   cornerG = Gi;
+			   cornerB = Bi;
+			   
+			   int b = 0;
+			   // for each row of bytes in the block
+			   for (int k = 0; k < 8; ++k) {
+				   
+				   // for each byte in row in block
+				   for (int l = 0; l < 8; ++l) {
+					   System.out.println(Ri + " " + Gi + " " + Bi);
+					   RBlocks[ind].bytes[b] = bytes[Ri];
+					   GBlocks[ind].bytes[b] = bytes[Gi];
+					   BBlocks[ind].bytes[b] = bytes[Bi];
+					   ++b; ++Ri; ++Gi; ++Bi;
+				   }
+				   
+				   //set Ri, Gi, Bi to first byte in next row in block
+				   Ri = Ri - 8 + width;
+				   Gi = Gi - 8 + width;
+				   Bi = Bi - 8 + width;
+			   }
+			   ++ind; // new block!
+			   // set Ri, Gi, Bi to upper left of next block in the row
+			   Ri = cornerR + 8;
+			   Gi = cornerG + 8;
+			   Bi = cornerB + 8;
+		   }
+		   // Set Ri, Gi, Bi to next row's first block's upper left
+		   Ri = cornerR - (width - 8) + (8 * width);
+		   Gi = cornerG - (width - 8) + (8 * width); 
+		   Bi = cornerB - (width - 8) + (8 * width);
+	   }
+   }
+   
    
    // Function calls
 	public void buttonPressed(String name)
