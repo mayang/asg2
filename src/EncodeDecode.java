@@ -7,9 +7,10 @@ import java.awt.event.MouseMotionListener;
 import java.awt.image.*;
 import java.io.*;
 import javax.swing.*;
+import java.lang.Math;
 
 
-public class EncodeDecode implements MouseListener, MouseMotionListener 
+public class EncodeDecode
 {  
    public static void main(String[] args) 
    {
@@ -24,13 +25,57 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
    		//String fileName = "../image1.rgb";
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
+   		ir.calculateDCTsPerBlock();
+   		ir.quantizePerBlock();
+   		System.out.println(RBlocks[0].bytes[0]);
+   		System.out.println(RBlocks[0].dct[0][0]);
+   		System.out.println(RBlocks[0].quantizations[0][0]);
+   		ir.displayImages();
    }
    
    
    // 8x8 block 
    class Block8x8 {
-	   byte[] bytes = new byte[64];
-   }
+	   byte[] bytes = new byte[64]; // pixels
+	   double[][] dct = new double[8][8]; // dct coefficients
+	   int[][] quantizations = new int[8][8]; // quantizations
+	   
+	   // calculate DCTs for this block
+	   public void calculateDCTs() {
+		   double c_u;
+		   double c_v;
+		   // for each frequency (u, v)
+		   for (int u = 0; u < 8; ++u) {
+			   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1;
+			   for (int v = 0; v < 8; ++v) {
+				   // for the DC F(0, 0)
+				   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+				   
+				   // sum with all f's
+				   int fsums = 0;
+				   for (int i = 0; i < 64; ++i) {
+					   int y = i / 8;
+					   int x = i - (8 * y);
+					   // convert bytes?
+					   int f_xy = 0x00000000 | bytes[i]; 
+					   fsums += (double) f_xy * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
+							   	* Math.cos( ((2.0*(double)y + 1.0) * (double)v * Math.PI) / 16.0);
+				   }
+				   dct[u][v] = ((1.0 / 4.0) * c_u * c_v) * fsums; 
+			   }
+		   }
+	   }
+	   
+	   // quantize dct values
+	   public void Quantize(int n) {
+		   for (int u = 0; u < 8; ++u) {
+			   for (int v = 0; v < 8; ++v) {
+				   quantizations[u][v] = (int) Math.round(dct[u][v] / Math.pow(2, n));
+			   }
+		   }
+	   }
+	   
+   } // end Block8x8 class
    
    
    // fields
@@ -42,11 +87,16 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
    public static Block8x8[] RBlocks; // blocks for R component
    public static Block8x8[] GBlocks; // blocks for G component
    public static Block8x8[] BBlocks; // blocks for B component
+   public static BufferedImage img;
    
    public EncodeDecode(int quant, int mode, int lat, String fileName)
    {
 	
-	    BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+	   quantizationLevel = quant;
+	   deliveryMode = mode;
+	   latency = lat;
+	   
+	    img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 	
 	    //Reading File
 	    try {
@@ -90,7 +140,9 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	    } catch (IOException e) {
 	      e.printStackTrace();
 	    }
-	    
+	    	
+   }
+   public void displayImages() {
 	    // Use a label to display the image
 	    JFrame frame = new JFrame();
 	    frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -107,7 +159,7 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	    int i=0;
 	    for (int y = 0; y < 8; ++y) {
 	    	for (int x = 0; x < 8; ++ x) {
-	    		int pix = 0xff000000 | ((RBlocks[0].bytes[i] & 0xff) << 16) | ((GBlocks[0].bytes[i] & 0xff) << 8) | (BBlocks[0].bytes[i] & 0xff);
+	    		int pix = 0xff000000 | ((RBlocks[1].bytes[i] & 0xff) << 16) | ((GBlocks[1].bytes[i] & 0xff) << 8) | (BBlocks[1].bytes[i] & 0xff);
 	    		img2.setRGB(x, y, pix);
 	    		++i;
 	    	}
@@ -127,7 +179,7 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 		buttonPanel.add(closeButton, BorderLayout.WEST);	
 		
 	    frame.pack();
-	    frame.setVisible(true); 	
+	    frame.setVisible(true); 
    }
    
    // divide each component (RGB) into 8x8 blocks
@@ -136,10 +188,10 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	   int Ri, Gi, Bi; // keep track of compoent in byte array
 	   
 	   // make blocks
-	   RBlocks = new Block8x8[height*width];
-	   GBlocks = new Block8x8[height*width];
-	   BBlocks = new Block8x8[height*width];
-	   for (int i = 0; i < height*width; ++i) {
+	   RBlocks = new Block8x8[(height/8) * (width/8)];
+	   GBlocks = new Block8x8[(height/8)*(width/8)];
+	   BBlocks = new Block8x8[(height/8)*(width/8)];
+	   for (int i = 0; i < (height/8)*(width/8); ++i) {
 		   RBlocks[i] = new Block8x8();
 		   GBlocks[i] = new Block8x8();
 		   BBlocks[i] = new Block8x8();
@@ -171,7 +223,7 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 				   
 				   // for each byte in row in block
 				   for (int l = 0; l < 8; ++l) {
-					   System.out.println(Ri + " " + Gi + " " + Bi);
+					   //System.out.println(Ri + " " + Gi + " " + Bi);
 					   RBlocks[ind].bytes[b] = bytes[Ri];
 					   GBlocks[ind].bytes[b] = bytes[Gi];
 					   BBlocks[ind].bytes[b] = bytes[Bi];
@@ -196,6 +248,21 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 	   }
    }
    
+   public void calculateDCTsPerBlock() {
+	   for (int i = 0; i < RBlocks.length; ++i) {
+		   RBlocks[i].calculateDCTs();
+		   GBlocks[i].calculateDCTs();
+		   BBlocks[i].calculateDCTs();
+	   }
+   }
+   
+   public void quantizePerBlock() {
+	   for (int i = 0; i < RBlocks.length; ++i) {
+		   RBlocks[i].Quantize(quantizationLevel);
+		   GBlocks[i].Quantize(quantizationLevel);
+		   BBlocks[i].Quantize(quantizationLevel);
+	   }
+   }
    
    // Function calls
 	public void buttonPressed(String name)
@@ -216,47 +283,7 @@ public class EncodeDecode implements MouseListener, MouseMotionListener
 		}
 	}
 
-	@Override
-	public void mouseClicked(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		//System.out.println(arg0.getX() + " and " + arg0.getY());
-	}
 
-	@Override
-	public void mouseEntered(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseExited(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mousePressed(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseReleased(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseDragged(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		
-	}
-
-	@Override
-	public void mouseMoved(MouseEvent arg0) {
-		// TODO Auto-generated method stub
-		//System.out.println("Moving");
-	} 
 	
 	class MyButton extends JButton {
 		MyButton(String label){
