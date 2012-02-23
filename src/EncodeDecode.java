@@ -7,6 +7,7 @@ import java.awt.event.MouseMotionListener;
 import java.awt.image.*;
 import java.io.*;
 import javax.swing.*;
+
 import java.lang.Math;
 
 
@@ -18,19 +19,32 @@ public class EncodeDecode
    		int quantLevel = Integer.parseInt(args[1]);
    		if (quantLevel < 0 || quantLevel > 7) {
    			System.out.println("Quantization level should be b/w 0 & 7");
+   			System.exit(0);
    		}
    		int deliveryMode = Integer.parseInt(args[2]);
+   		if (deliveryMode < 1 || deliveryMode > 3) {
+   			System.exit(0);
+   		}
    		int latency = Integer.parseInt(args[3]);
 
    		//String fileName = "../image1.rgb";
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
+   		System.out.println("1st bit in block: " + RBlocks[0].bytes[0]);
    		ir.calculateDCTsPerBlock();
+   		System.out.println("1st DCT: " +RBlocks[0].dct[0][0]);
    		ir.quantizePerBlock();
-   		System.out.println(RBlocks[0].bytes[0]);
-   		System.out.println(RBlocks[0].dct[0][0]);
-   		System.out.println(RBlocks[0].quantizations[0][0]);
+   		System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
+//   		ir.dequantizPerBlock();
+//   		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
    		ir.displayImages();
+   		try {
+			ir.DecodeSequential();
+		} catch (InterruptedException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+   		System.out.println("comressed: " + RBlocks[0].bytes[0]);
    }
    
    
@@ -38,7 +52,7 @@ public class EncodeDecode
    class Block8x8 {
 	   byte[] bytes = new byte[64]; // pixels
 	   double[][] dct = new double[8][8]; // dct coefficients
-	   int[][] quantizations = new int[8][8]; // quantizations
+	   byte[][] quantizations = new byte[8][8]; // quantizations
 	   
 	   // calculate DCTs for this block
 	   public void calculateDCTs() {
@@ -46,18 +60,18 @@ public class EncodeDecode
 		   double c_v;
 		   // for each frequency (u, v)
 		   for (int u = 0; u < 8; ++u) {
-			   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1;
+			   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
 			   for (int v = 0; v < 8; ++v) {
-				   // for the DC F(0, 0)
 				   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
 				   
 				   // sum with all f's
-				   int fsums = 0;
+				   double fsums = 0;
 				   for (int i = 0; i < 64; ++i) {
 					   int y = i / 8;
 					   int x = i - (8 * y);
 					   // convert bytes?
-					   int f_xy = 0x00000000 | bytes[i]; 
+					   //int f_xy = 0x00000000 | bytes[i]; 
+					   int f_xy = bytes[i];
 					   fsums += (double) f_xy * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
 							   	* Math.cos( ((2.0*(double)y + 1.0) * (double)v * Math.PI) / 16.0);
 				   }
@@ -70,9 +84,47 @@ public class EncodeDecode
 	   public void Quantize(int n) {
 		   for (int u = 0; u < 8; ++u) {
 			   for (int v = 0; v < 8; ++v) {
-				   quantizations[u][v] = (int) Math.round(dct[u][v] / Math.pow(2, n));
+				   quantizations[u][v] = (byte) Math.round(dct[u][v] / Math.pow(2, n));
 			   }
 		   }
+	   }
+	   
+	   // Dequantize data
+	   public void Dequantize(int n) {
+		   for (int u = 0; u < 8; ++u) {
+			   for (int v = 0; v < 8; ++v) {
+				   dct[u][v] = (double) quantizations[u][v] * Math.pow(2.0, (double) n) ;
+			   }
+		   }
+	   }
+	   
+	   // decode sequential mode, just the block
+	   public void InverseDCTSequential() {
+		   double c_u;
+		   double c_v;
+		   for (int i = 0; i < 64; ++i) {
+			   int y = i/8;
+			   int x = i - (8 * y);
+			   double summed = 0;
+			   for (int u = 0; u < 8; ++u) {
+				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
+				   for (int v = 0; v < 8; ++v) {
+					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+					   summed += c_u * c_v * dct[u][v] 
+							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
+							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
+				   }
+			   }
+			   bytes[i] = (byte) (1.0/4.0 * summed);
+		   }
+	   }
+	   
+	   public void InverseDCTSpectral() {
+		   
+	   }
+	   
+	   public void InverseDCTSuccBit() {
+		   
 	   }
 	   
    } // end Block8x8 class
@@ -87,7 +139,9 @@ public class EncodeDecode
    public static Block8x8[] RBlocks; // blocks for R component
    public static Block8x8[] GBlocks; // blocks for G component
    public static Block8x8[] BBlocks; // blocks for B component
-   public static BufferedImage img;
+   public static BufferedImage img; //original image
+   public static JLabel label2; // label that displays compressed image
+   public static BufferedImage jpeg; // jpeg'd image
    
    public EncodeDecode(int quant, int mode, int lat, String fileName)
    {
@@ -154,18 +208,15 @@ public class EncodeDecode
 	    
 	    // place holder for 2nd image
 	    
-	    // test image
-	    BufferedImage img2 = new BufferedImage(8, 8, BufferedImage.TYPE_INT_RGB);
-	    int i=0;
-	    for (int y = 0; y < 8; ++y) {
-	    	for (int x = 0; x < 8; ++ x) {
-	    		int pix = 0xff000000 | ((RBlocks[1].bytes[i] & 0xff) << 16) | ((GBlocks[1].bytes[i] & 0xff) << 8) | (BBlocks[1].bytes[i] & 0xff);
-	    		img2.setRGB(x, y, pix);
-	    		++i;
+	    // blank image
+	    jpeg = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+	    for (int y = 0; y < height; ++y) {
+	    	for (int x = 0; x < width; ++x) {
+	    		jpeg.setRGB(x, y, 0x00FFFFFF);
 	    	}
 	    }
 	    
-	    JLabel label2 = new JLabel(new ImageIcon(img2));
+	    label2 = new JLabel(new ImageIcon(jpeg));
 	    label2.setPreferredSize(new Dimension(width, height));
 	    frame.getContentPane().add(label2, BorderLayout.EAST);
 
@@ -264,19 +315,71 @@ public class EncodeDecode
 	   }
    }
    
+   public void dequantizPerBlock() {
+	   for (int i = 0; i < RBlocks.length; ++i) {
+		   RBlocks[i].Dequantize(quantizationLevel);
+		   GBlocks[i].Dequantize(quantizationLevel);
+		   BBlocks[i].Dequantize(quantizationLevel);
+	   }
+   }
+   
+   // sequential decoding - each block one by one 
+   public void DecodeSequential() throws InterruptedException {
+	   int corner_x = 0; // upper left corner of this block
+	   int corner_y = 0; // upper left corner of this block
+	   int ind = 0; // index of block in components
+	  
+	   while (corner_y < height) {
+		   // for each block
+		   
+		   // decode
+		   RBlocks[ind].Dequantize(quantizationLevel);
+		   RBlocks[ind].InverseDCTSequential();
+		   GBlocks[ind].Dequantize(quantizationLevel);
+		   GBlocks[ind].InverseDCTSequential();
+		   BBlocks[ind].Dequantize(quantizationLevel);
+		   BBlocks[ind].InverseDCTSequential();
+		   
+		   // copy values into BufferedImage
+		   int bi = 0;
+		   System.out.println("corner: " + corner_x + " " + corner_y);
+		   for (int y = corner_y; y < corner_y + 8; ++y) {
+			   for (int x = corner_x; x < corner_x + 8; ++x) {
+				   byte r = RBlocks[ind].bytes[bi];
+				   byte g = GBlocks[ind].bytes[bi];
+				   byte b = BBlocks[ind].bytes[bi];
+				   int rgb = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+				   System.out.println(x + " " + y );
+				   jpeg.setRGB(x, y, rgb);
+				   ++bi;
+			   }
+		   }
+		   
+		   // Redraw Image
+		   label2.removeAll();
+		   label2.setIcon(new ImageIcon(jpeg));
+		   label2.setPreferredSize(new Dimension(width, height));
+		   label2.revalidate();
+		   label2.repaint();
+		   
+		   // wait for latency milliseconds
+		   Thread.sleep(latency);
+		   
+		   // update values
+		   ++ind;
+		   corner_x += 8;
+		   if (corner_x >= width) {
+			   corner_x = 0;
+			   corner_y += 8;
+		   }
+	   }
+	   
+   }
+   
    // Function calls
 	public void buttonPressed(String name)
 	{
-		if (name.equals("Split"))
-		{
-			//System.out.println("Split");
-		} else if (name.equals("Initialize"))
-		{
-			//System.out.println("Initialize");
-		} else if (name.equals("Reset"))
-		{
-			//System.out.println("Reset");
-		} else if (name.equals("Close"))
+		if (name.equals("Close"))
 		{
 			//System.out.println("Close");
 			System.exit(0);
