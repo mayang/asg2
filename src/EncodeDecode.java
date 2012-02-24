@@ -37,7 +37,7 @@ public class EncodeDecode
    		ir.quantizePerBlock();
    		System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
 //   		ir.dequantizPerBlock();
-//   		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
+//  		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
    		//ir.displayImages();
    		if (deliveryMode == 1) {
    	   		try {
@@ -53,6 +53,16 @@ public class EncodeDecode
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
+   		} else if (deliveryMode == 3) {
+   			try {
+				ir.DecodeProgessiveSequential();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+   		} else {
+   			System.out.println("Not a mode!");
+   			//System.exit(0);
    		}
    		System.out.println("comressed: " + RBlocks[0].bytes[0]);
 
@@ -130,7 +140,7 @@ public class EncodeDecode
 		   }
 	   }
 	   
-	   
+	   // decode progressive mode with spectral selection
 	   public void InverseDCTSpectral(int ac_count) {
 		   double c_u;
 		   double c_v;
@@ -160,7 +170,27 @@ public class EncodeDecode
 		   }
 	   }
 	   
-	   public void InverseDCTSuccBit() {
+	   // decode block progressive mode with successive bit approximation
+	   public void InverseDCTSuccBit(int bit) {
+		   double c_u;
+		   double c_v;
+		   for (int i = 0 ; i < 64; ++i) { // each pixel in the block
+			   int y = i / 8;
+			   int x = i - (8 * y);
+			   double summed = 0;
+			   for (int u = 0; u < 8; ++u) {
+				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
+				   for (int v = 0; v < 8; ++v) {
+					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+					   int sigBitstemp = (int) dct[u][v];
+					   int sigBits =  sigBitstemp >>> bit; // gets bits
+					   summed += c_u * c_v * (double) sigBits
+							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
+							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
+				   }
+			   }
+			   bytes[i] = (byte) (1.0/4.0 * summed);
+		   }
 		   
 	   }
 	   
@@ -422,11 +452,11 @@ public class EncodeDecode
 		   // for all blocks
 		   for (int i = 0; i < RBlocks.length; ++i) {
 			   // decode the block
-			   RBlocks[i].Quantize(quantizationLevel);
+			   RBlocks[i].Dequantize(quantizationLevel);
 			   RBlocks[i].InverseDCTSpectral(ac);
-			   GBlocks[i].Quantize(quantizationLevel);
+			   GBlocks[i].Dequantize(quantizationLevel);
 			   GBlocks[i].InverseDCTSpectral(ac);
-			   BBlocks[i].Quantize(quantizationLevel);
+			   BBlocks[i].Dequantize(quantizationLevel);
 			   BBlocks[i].InverseDCTSpectral(ac);
 		   
 			   // copy block into buffered image
@@ -462,6 +492,55 @@ public class EncodeDecode
 	   }
    }
    
+   // Progressive Mode - Sequential Bit Approx
+   // decode all blocks with increasing significant bits
+   public void DecodeProgessiveSequential() throws InterruptedException {
+	   for (int bit = 31; bit >= 0; --bit) {
+		   int corner_x = 0;
+		   int corner_y = 0;
+		   // for all block
+		   for (int i = 0; i < RBlocks.length; ++i) {
+			   // decode block
+			   RBlocks[i].Dequantize(quantizationLevel);
+			   RBlocks[i].InverseDCTSuccBit(bit);
+			   GBlocks[i].Dequantize(quantizationLevel);
+			   GBlocks[i].InverseDCTSuccBit(bit);
+			   BBlocks[i].Dequantize(quantizationLevel);
+			   BBlocks[i].InverseDCTSuccBit(bit);
+			   
+			   // Copy block into Buffered Image
+			   int bi = 0;
+			   for (int y = corner_y; y < corner_y + 8; ++y) {
+				   for (int x = corner_x; x < corner_x + 8; ++x) {
+					   byte r = RBlocks[i].bytes[bi];
+					   byte g = GBlocks[i].bytes[bi];
+					   byte b = BBlocks[i].bytes[bi];
+					   int rgb = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+					   jpeg.setRGB(x, y, rgb);
+					   ++bi;
+				   }
+			   }
+			   
+			   // update block's corner in the Buffered Image
+			   corner_x += 8;
+			   if (corner_x >= width) {
+				   corner_x = 0;
+				   corner_y += 8;
+			   }
+		   }
+		   
+		   // refresh image
+		   label2.removeAll();
+		   label2.setIcon(new ImageIcon(jpeg));
+		   label2.setPreferredSize(new Dimension(width, height));
+		   label2.revalidate();
+		   label2.repaint();
+		   System.out.println("the " + bit + "significant bits");
+		   
+		   // sleep
+		   Thread.sleep(latency);	   
+	   }
+   }
    
    // Function calls
 	public void buttonPressed(String name)
