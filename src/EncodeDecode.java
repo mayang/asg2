@@ -30,6 +30,7 @@ public class EncodeDecode
    		//String fileName = "../image1.rgb";
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
+   		ir.displayImages();
    		System.out.println("1st bit in block: " + RBlocks[0].bytes[0]);
    		ir.calculateDCTsPerBlock();
    		System.out.println("1st DCT: " +RBlocks[0].dct[0][0]);
@@ -37,14 +38,24 @@ public class EncodeDecode
    		System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
 //   		ir.dequantizPerBlock();
 //   		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
-   		ir.displayImages();
-   		try {
-			ir.DecodeSequential();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+   		//ir.displayImages();
+   		if (deliveryMode == 1) {
+   	   		try {
+   				ir.DecodeSequential();
+   			} catch (InterruptedException e) {
+   				// TODO Auto-generated catch block
+   				e.printStackTrace();
+   			}
+   		} else if (deliveryMode == 2) {
+   			try {
+				ir.DecodeProgressiveSpectral();
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+   		}
    		System.out.println("comressed: " + RBlocks[0].bytes[0]);
+
    }
    
    
@@ -119,8 +130,34 @@ public class EncodeDecode
 		   }
 	   }
 	   
-	   public void InverseDCTSpectral() {
-		   
+	   
+	   public void InverseDCTSpectral(int ac_count) {
+		   double c_u;
+		   double c_v;
+		   for (int i = 0; i < 64; ++i) { // each pixel in block
+			   int y = i / 8;
+			   int x = i - (8 * y);
+			   double summed = 0;
+			   int ac = 0;
+			   for (int u = 0; u < 8; ++u) {
+				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
+				   for (int v = 0; v < 8; ++v) {
+					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+					   summed += c_u * c_v * dct[u][v] 
+							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
+							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
+					   
+					   ++ac;
+					   if (ac > ac_count) {
+						   break;
+					   }
+				   }
+				   if (ac > ac_count) {
+					   break;
+				   }  
+			   }
+			   bytes[i] = (byte) (1.0/4.0 * summed);
+		   }
 	   }
 	   
 	   public void InverseDCTSuccBit() {
@@ -332,7 +369,7 @@ public class EncodeDecode
 	   while (corner_y < height) {
 		   // for each block
 		   
-		   // decode
+		   // decode the block
 		   RBlocks[ind].Dequantize(quantizationLevel);
 		   RBlocks[ind].InverseDCTSequential();
 		   GBlocks[ind].Dequantize(quantizationLevel);
@@ -342,14 +379,14 @@ public class EncodeDecode
 		   
 		   // copy values into BufferedImage
 		   int bi = 0;
-		   System.out.println("corner: " + corner_x + " " + corner_y);
+		  // System.out.println("corner: " + corner_x + " " + corner_y);
 		   for (int y = corner_y; y < corner_y + 8; ++y) {
 			   for (int x = corner_x; x < corner_x + 8; ++x) {
 				   byte r = RBlocks[ind].bytes[bi];
 				   byte g = GBlocks[ind].bytes[bi];
 				   byte b = BBlocks[ind].bytes[bi];
 				   int rgb = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
-				   System.out.println(x + " " + y );
+			//	   System.out.println(x + " " + y );
 				   jpeg.setRGB(x, y, rgb);
 				   ++bi;
 			   }
@@ -375,6 +412,56 @@ public class EncodeDecode
 	   }
 	   
    }
+   // Progressive Mode - Spectral Selection Decoding
+   // Decode all blocks using only DC, then DC, AC....
+   public void DecodeProgressiveSpectral() throws InterruptedException {
+	   for (int ac = 0; ac < 64; ++ac) { // keep decoding with the next AC coeff
+		   
+		   int corner_x = 0; // corner
+		   int corner_y = 0;
+		   // for all blocks
+		   for (int i = 0; i < RBlocks.length; ++i) {
+			   // decode the block
+			   RBlocks[i].Quantize(quantizationLevel);
+			   RBlocks[i].InverseDCTSpectral(ac);
+			   GBlocks[i].Quantize(quantizationLevel);
+			   GBlocks[i].InverseDCTSpectral(ac);
+			   BBlocks[i].Quantize(quantizationLevel);
+			   BBlocks[i].InverseDCTSpectral(ac);
+		   
+			   // copy block into buffered image
+			   int bi = 0;
+			   for (int y = corner_y; y < corner_y + 8; ++y) {
+				   for (int x = corner_x; x < corner_x + 8; ++x) {
+					   byte r = RBlocks[i].bytes[bi];
+					   byte g = GBlocks[i].bytes[bi];
+					   byte b = BBlocks[i].bytes[bi];
+					   int rgb = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+					   jpeg.setRGB(x, y, rgb);
+					   ++bi;
+				   }
+			   }
+			   
+			   // update block's corner in the Buffered Image
+			   corner_x += 8;
+			   if (corner_x >= width) {
+				   corner_x = 0;
+				   corner_y += 8;
+			   }
+		   }
+		   
+		   // refresh image
+		   label2.removeAll();
+		   label2.setIcon(new ImageIcon(jpeg));
+		   label2.setPreferredSize(new Dimension(width, height));
+		   label2.revalidate();
+		   label2.repaint();
+		   
+		   // Sleep
+		   Thread.sleep(latency);
+	   }
+   }
+   
    
    // Function calls
 	public void buttonPressed(String name)
