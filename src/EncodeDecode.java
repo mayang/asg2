@@ -183,7 +183,15 @@ public class EncodeDecode
 				   for (int v = 0; v < 8; ++v) {
 					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
 					   int sigBitstemp = (int) dct[u][v];
-					   int sigBits =  sigBitstemp >>> bit; // gets bits
+					   int sigBits =  sigBitstemp >> bit; // gets bits
+//					   int sigBits = (int) dct[u][v];
+//					   int mask = 0x8000;
+//					   for (int m = 1; m < bit; ++m) {
+//						   sigBits = sigBits & mask;
+//						   int oldmask = mask;
+//						   mask = mask >>> 1;
+//				   		   mask = mask | oldmask;
+//					   }
 					   summed += c_u * c_v * (double) sigBits
 							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
 							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
@@ -495,7 +503,7 @@ public class EncodeDecode
    // Progressive Mode - Sequential Bit Approx
    // decode all blocks with increasing significant bits
    public void DecodeProgessiveSequential() throws InterruptedException {
-	   for (int bit = 31; bit >= 0; --bit) {
+	   for (int bit = 17; bit >= 0; --bit) {
 		   int corner_x = 0;
 		   int corner_y = 0;
 		   // for all block
