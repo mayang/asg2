@@ -503,7 +503,7 @@ public class EncodeDecode
    // Progressive Mode - Sequential Bit Approx
    // decode all blocks with increasing significant bits
    public void DecodeProgessiveSequential() throws InterruptedException {
-	   for (int bit = 17; bit >= 0; --bit) {
+	   for (int bit = 15; bit >= 0; --bit) {
 		   int corner_x = 0;
 		   int corner_y = 0;
 		   // for all block
