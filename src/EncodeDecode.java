@@ -31,11 +31,11 @@ public class EncodeDecode
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
    		ir.displayImages();
-   		System.out.println("1st bit in block: " + RBlocks[0].bytes[0]);
+   		//System.out.println("1st bit in block: " + RBlocks[0].bytes[0]);
    		ir.calculateDCTsPerBlock();
-   		System.out.println("1st DCT: " +RBlocks[0].dct[0][0]);
+   		//System.out.println("1st DCT: " +RBlocks[0].dct[0][0]);
    		ir.quantizePerBlock();
-   		System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
+   		//System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
 //   		ir.dequantizPerBlock();
 //  		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
    		//ir.displayImages();
@@ -64,7 +64,7 @@ public class EncodeDecode
    			System.out.println("Not a mode!");
    			//System.exit(0);
    		}
-   		System.out.println("comressed: " + RBlocks[0].bytes[0]);
+   		//System.out.println("comressed: " + RBlocks[0].bytes[0]);
 
    }
    
@@ -149,22 +149,42 @@ public class EncodeDecode
 			   int x = i - (8 * y);
 			   double summed = 0;
 			   int ac = 0;
-			   for (int u = 0; u < 8; ++u) {
-				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
-				   for (int v = 0; v < 8; ++v) {
-					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
-					   summed += c_u * c_v * dct[u][v] 
-							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
-							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
-					   
-					   ++ac;
-					   if (ac > ac_count) {
-						   break;
-					   }
-				   }
+			   // zig zag through the matrix
+			   int u = 1, v = 1;
+			   for (int z = 0; z < 64; ++z) {
+				   // [u-1][v-1]
+				   c_u = ((u - 1) == 0) ? (1/Math.sqrt(2)) : 1; 
+				   c_v = ((v - 1) == 0) ? (1/Math.sqrt(2)) : 1;
+				   summed += c_u * c_v * dct[u-1][v-1] 
+						   * Math.cos(((2.0 * (double)x + 1.0) * (double)(u - 1) * Math.PI) / 16.0 ) 
+						   	* Math.cos(((2.0 * (double)y + 1.0) * (double)(v - 1) * Math.PI) / 16.0);
+				   
+				   ++ac;
 				   if (ac > ac_count) {
 					   break;
-				   }  
+				   }
+				   // zigging down
+				   if ((u + v) % 2 == 0) {
+					   if (v < 8) {
+						   ++v;
+					   } else {
+						   u += 2;
+					   }
+					   if (u > 1) {
+						   --u;
+					   }
+				   // zagging up
+				   } else {
+					   if (u < 8) {
+						   ++u;
+					   } else {
+						   v += 2;
+					   }
+					   if (v > 1) {
+						   --v;
+					   }
+				   }
+ 
 			   }
 			   bytes[i] = (byte) (1.0/4.0 * summed);
 		   }
@@ -262,7 +282,7 @@ public class EncodeDecode
 			
 			divideIntoBlocks(bytes);
 			
-			System.out.println("image divided");
+			//System.out.println("image divided");
 			
 	    } catch (FileNotFoundException e) {
 	      e.printStackTrace();
@@ -543,7 +563,7 @@ public class EncodeDecode
 		   label2.setPreferredSize(new Dimension(width, height));
 		   label2.revalidate();
 		   label2.repaint();
-		   System.out.println("the " + bit + "significant bits");
+		   //System.out.println("the " + bit + "significant bits");
 		   
 		   // sleep
 		   Thread.sleep(latency);	   
