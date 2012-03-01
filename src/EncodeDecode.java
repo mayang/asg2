@@ -31,13 +31,18 @@ public class EncodeDecode
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
    		ir.displayImages();
-   		//System.out.println("1st bit in block: " + RBlocks[0].bytes[0]);
+   		System.out.println("1st bit in red block: " + RBlocks[0].bytes[0]);
+   		System.out.println("1st bit in green block: " + GBlocks[0].bytes[0]);
+   		System.out.println("1st bit in blue block: " + BBlocks[0].bytes[0]);
    		ir.calculateDCTsPerBlock();
-   		//System.out.println("1st DCT: " +RBlocks[0].dct[0][0]);
+   		System.out.println("1st red DCT: " + RBlocks[0].dct[0][0]);
+   		System.out.println("1st green DCT: " + GBlocks[0].dct[0][0]);
+   		System.out.println("1st blue DCT: " + BBlocks[0].dct[0][0]);
    		ir.quantizePerBlock();
-   		//System.out.println("1st qunt: " + RBlocks[0].quantizations[0][0]);
-//   		ir.dequantizPerBlock();
-//  		System.out.println("1st dequant'd DCT: " +RBlocks[0].dct[0][0]);
+   		System.out.println("1st red qunt: " + RBlocks[0].quantizations[0][0]);
+   		System.out.println("1st green qunt: " + GBlocks[0].quantizations[0][0]);
+   		System.out.println("1st blue qunt: " + BBlocks[0].quantizations[0][0]);
+   		//   		ir.dequantizPerBlock();
    		//ir.displayImages();
    		if (deliveryMode == 1) {
    	   		try {
@@ -64,7 +69,12 @@ public class EncodeDecode
    			System.out.println("Not a mode!");
    			//System.exit(0);
    		}
-   		//System.out.println("comressed: " + RBlocks[0].bytes[0]);
+   		System.out.println("1st red dequant'd DCT: " +RBlocks[0].dct[0][0]);
+   		System.out.println("1st green dequant'd DCT: " +GBlocks[0].dct[0][0]);
+   		System.out.println("1st blue dequant'd DCT: " +BBlocks[0].dct[0][0]);
+   		System.out.println("red comressed: " + RBlocks[0].bytes[0]);
+   		System.out.println("green comressed: " + GBlocks[0].bytes[0]);
+   		System.out.println("blue comressed: " + BBlocks[0].bytes[0]);
 
    }
    
@@ -73,7 +83,7 @@ public class EncodeDecode
    class Block8x8 {
 	   byte[] bytes = new byte[64]; // pixels
 	   double[][] dct = new double[8][8]; // dct coefficients
-	   byte[][] quantizations = new byte[8][8]; // quantizations
+	   double[][] quantizations = new double[8][8]; // quantizations
 	   
 	   // calculate DCTs for this block
 	   public void calculateDCTs() {
@@ -81,9 +91,9 @@ public class EncodeDecode
 		   double c_v;
 		   // for each frequency (u, v)
 		   for (int u = 0; u < 8; ++u) {
-			   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
+			   c_u = (u == 0) ? (1.0/Math.sqrt(2.0)) : 1.0; 
 			   for (int v = 0; v < 8; ++v) {
-				   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+				   c_v = (v == 0) ? (1.0/Math.sqrt(2.0)) : 1.0;
 				   
 				   // sum with all f's
 				   double fsums = 0;
@@ -92,8 +102,10 @@ public class EncodeDecode
 					   int x = i - (8 * y);
 					   // convert bytes?
 					   //int f_xy = 0x00000000 | bytes[i]; 
-					   int f_xy = bytes[i];
-					   fsums += (double) f_xy * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
+					   //double f_xy = (double) bytes[i];
+					   //System.out.println((double) bytes[i]);
+					   // add 127 to bytes as double that would make it bigger...?
+					   fsums += (double) bytes[i] * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
 							   	* Math.cos( ((2.0*(double)y + 1.0) * (double)v * Math.PI) / 16.0);
 				   }
 				   dct[u][v] = ((1.0 / 4.0) * c_u * c_v) * fsums; 
@@ -105,7 +117,7 @@ public class EncodeDecode
 	   public void Quantize(int n) {
 		   for (int u = 0; u < 8; ++u) {
 			   for (int v = 0; v < 8; ++v) {
-				   quantizations[u][v] = (byte) Math.round(dct[u][v] / Math.pow(2, n));
+				   quantizations[u][v] = (double) Math.round(dct[u][v] / Math.pow(2.0, (double) n));
 			   }
 		   }
 	   }
@@ -114,7 +126,7 @@ public class EncodeDecode
 	   public void Dequantize(int n) {
 		   for (int u = 0; u < 8; ++u) {
 			   for (int v = 0; v < 8; ++v) {
-				   dct[u][v] = (double) quantizations[u][v] * Math.pow(2.0, (double) n) ;
+				   dct[u][v] =  quantizations[u][v] * Math.pow(2.0, (double) n) ;
 			   }
 		   }
 	   }
@@ -128,15 +140,26 @@ public class EncodeDecode
 			   int x = i - (8 * y);
 			   double summed = 0;
 			   for (int u = 0; u < 8; ++u) {
-				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
+				   c_u = (u == 0) ? (1.0/Math.sqrt(2.0)) : 1.0; 
 				   for (int v = 0; v < 8; ++v) {
-					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
+					   c_v = (v == 0) ? (1.0/Math.sqrt(2.0)) : 1.0;
 					   summed += c_u * c_v * dct[u][v] 
 							   * Math.cos( ((2.0*(double)x+1.0)*(double)u*Math.PI) / 16.0 ) 
 							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
 				   }
 			   }
-			   bytes[i] = (byte) (1.0/4.0 * summed);
+			   // clamp here? not working?
+			   double temp = (1.0 / 4.0) * summed;
+//			   System.out.println("new byte" + temp);
+//			   if (temp < -128.0) {
+//				   System.out.println("clamped down");
+//				   bytes[i] = -128;
+//			   } else if (temp > 127.0) {
+//				   System.out.println("clamped up");
+//				   bytes[i] = 127;
+//			   } else {
+				   bytes[i] = (byte) temp;
+			   //}
 		   }
 	   }
 	   
@@ -153,8 +176,8 @@ public class EncodeDecode
 			   int u = 1, v = 1;
 			   for (int z = 0; z < 64; ++z) {
 				   // [u-1][v-1]
-				   c_u = ((u - 1) == 0) ? (1/Math.sqrt(2)) : 1; 
-				   c_v = ((v - 1) == 0) ? (1/Math.sqrt(2)) : 1;
+				   c_u = ((u - 1) == 0) ? (1/Math.sqrt(2.0)) : 1; 
+				   c_v = ((v - 1) == 0) ? (1/Math.sqrt(2.0)) : 1;
 				   summed += c_u * c_v * dct[u-1][v-1] 
 						   * Math.cos(((2.0 * (double)x + 1.0) * (double)(u - 1) * Math.PI) / 16.0 ) 
 						   	* Math.cos(((2.0 * (double)y + 1.0) * (double)(v - 1) * Math.PI) / 16.0);
@@ -307,7 +330,7 @@ public class EncodeDecode
 	    jpeg = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
 	    for (int y = 0; y < height; ++y) {
 	    	for (int x = 0; x < width; ++x) {
-	    		jpeg.setRGB(x, y, 0x00FFFFFF);
+	    		jpeg.setRGB(x, y, 0xffffffff);
 	    	}
 	    }
 	    
@@ -329,7 +352,7 @@ public class EncodeDecode
    }
    
    // divide each component (RGB) into 8x8 blocks
-   public void divideIntoBlocks(byte bytes[]) {  
+   public void divideIntoBlocks(byte[] bytes) {  
 	   int ind; // track of the index in the block arrays
 	   int Ri, Gi, Bi; // keep track of compoent in byte array
 	   
@@ -441,9 +464,25 @@ public class EncodeDecode
 		   for (int y = corner_y; y < corner_y + 8; ++y) {
 			   for (int x = corner_x; x < corner_x + 8; ++x) {
 				   byte r = RBlocks[ind].bytes[bi];
+//				   if (r < -128) {
+//					   System.out.println("here?");
+//					   r = -128;
+//				   } else if ( r > 127){
+//					   r = 127;
+//				   }
 				   byte g = GBlocks[ind].bytes[bi];
+//				   if (g < -128) {
+//					   g = -128;
+//				   } else if ( g > 127){
+//					   r = 127;
+//				   }
 				   byte b = BBlocks[ind].bytes[bi];
-				   int rgb = 0xFF000000 | ((r & 0xFF) << 16) | ((g & 0xFF) << 8) | (b & 0xFF);
+//				   if (b < -128) {
+//					   b = -128;
+//				   } else if ( b > 127){
+//					   b = 127;
+//				   }
+				   int rgb = 0xff000000 | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
 			//	   System.out.println(x + " " + y );
 				   jpeg.setRGB(x, y, rgb);
 				   ++bi;
