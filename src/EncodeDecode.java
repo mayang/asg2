@@ -31,17 +31,17 @@ public class EncodeDecode implements MouseListener
    		
    		EncodeDecode ir = new EncodeDecode(quantLevel, deliveryMode, latency, fileName);
    		ir.displayImages();
-   		System.out.println("1st bit in red block: " + RBlocks[0].bytes[0]);
-   		System.out.println("1st bit in green block: " + GBlocks[0].bytes[0]);
-   		System.out.println("1st bit in blue block: " + BBlocks[0].bytes[0]);
+//   		System.out.println("1st bit in red block: " + RBlocks[0].bytes[0]);
+//   		System.out.println("1st bit in green block: " + GBlocks[0].bytes[0]);
+//   		System.out.println("1st bit in blue block: " + BBlocks[0].bytes[0]);
    		ir.calculateDCTsPerBlock();
-   		System.out.println("1st red DCT: " + RBlocks[0].dct[0][0]);
-   		System.out.println("1st green DCT: " + GBlocks[0].dct[0][0]);
-   		System.out.println("1st blue DCT: " + BBlocks[0].dct[0][0]);
+//   		System.out.println("1st red DCT: " + RBlocks[0].dct[0][0]);
+//   		System.out.println("1st green DCT: " + GBlocks[0].dct[0][0]);
+//   		System.out.println("1st blue DCT: " + BBlocks[0].dct[0][0]);
    		ir.quantizePerBlock();
-   		System.out.println("1st red qunt: " + RBlocks[0].quantizations[0][0]);
-   		System.out.println("1st green qunt: " + GBlocks[0].quantizations[0][0]);
-   		System.out.println("1st blue qunt: " + BBlocks[0].quantizations[0][0]);
+//   		System.out.println("1st red qunt: " + RBlocks[0].quantizations[0][0]);
+//   		System.out.println("1st green qunt: " + GBlocks[0].quantizations[0][0]);
+//   		System.out.println("1st blue qunt: " + BBlocks[0].quantizations[0][0]);
    		//   		ir.dequantizPerBlock();
    		//ir.displayImages();
    		if (deliveryMode == 1) {
@@ -69,12 +69,12 @@ public class EncodeDecode implements MouseListener
    			System.out.println("Not a mode!");
    			//System.exit(0);
    		}
-   		System.out.println("1st red dequant'd DCT: " +RBlocks[0].dct[0][0]);
-   		System.out.println("1st green dequant'd DCT: " +GBlocks[0].dct[0][0]);
-   		System.out.println("1st blue dequant'd DCT: " +BBlocks[0].dct[0][0]);
-   		System.out.println("red comressed: " + RBlocks[0].bytes[0]);
-   		System.out.println("green comressed: " + GBlocks[0].bytes[0]);
-   		System.out.println("blue comressed: " + BBlocks[0].bytes[0]);
+//   		System.out.println("1st red dequant'd DCT: " +RBlocks[0].dct[0][0]);
+//   		System.out.println("1st green dequant'd DCT: " +GBlocks[0].dct[0][0]);
+//   		System.out.println("1st blue dequant'd DCT: " +BBlocks[0].dct[0][0]);
+//   		System.out.println("red comressed: " + RBlocks[0].bytes[0]);
+//   		System.out.println("green comressed: " + GBlocks[0].bytes[0]);
+//   		System.out.println("blue comressed: " + BBlocks[0].bytes[0]);
 
    }
    
