@@ -11,7 +11,7 @@ import javax.swing.*;
 import java.lang.Math;
 
 
-public class EncodeDecode
+public class EncodeDecode implements MouseListener
 {  
    public static void main(String[] args) 
    {
@@ -101,11 +101,11 @@ public class EncodeDecode
 					   int y = i / 8;
 					   int x = i - (8 * y);
 					   // convert bytes?
-					   //int f_xy = 0x00000000 | bytes[i]; 
-					   //double f_xy = (double) bytes[i];
+					   int f_xy = 0x00000000 | (bytes[i] & 0xFF);
+					   //double f_xy = bytes[i] + 128.0;
 					   //System.out.println((double) bytes[i]);
 					   // add 127 to bytes as double that would make it bigger...?
-					   fsums += (double) bytes[i] * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
+					   fsums += f_xy * Math.cos( ((2.0*(double)x + 1.0) * (double)u * Math.PI) / 16.0 )
 							   	* Math.cos( ((2.0*(double)y + 1.0) * (double)v * Math.PI) / 16.0);
 				   }
 				   dct[u][v] = ((1.0 / 4.0) * c_u * c_v) * fsums; 
@@ -148,18 +148,18 @@ public class EncodeDecode
 							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
 				   }
 			   }
-			   // clamp here? not working?
-			   double temp = (1.0 / 4.0) * summed;
-//			   System.out.println("new byte" + temp);
-//			   if (temp < -128.0) {
-//				   System.out.println("clamped down");
-//				   bytes[i] = -128;
-//			   } else if (temp > 127.0) {
-//				   System.out.println("clamped up");
-//				   bytes[i] = 127;
-//			   } else {
-				   bytes[i] = (byte) temp;
-			   //}
+			   // Clamping
+			   int temp = (int) ((1.0 / 4.0) * summed);
+			//  System.out.print("new byte " + temp);
+			  if (temp > 255) {
+				  temp = 255;
+			  }
+			  if (temp < 0) {
+				  temp = 0;
+			  }
+
+			   bytes[i] = (byte) (temp);
+			   //System.out.println(" " + bytes[i]);
 		   }
 	   }
 	   
@@ -209,7 +209,17 @@ public class EncodeDecode
 				   }
  
 			   }
-			   bytes[i] = (byte) (1.0/4.0 * summed);
+			   // Clamping
+			   int temp = (int) ((1.0 / 4.0) * summed);
+			//  System.out.print("new byte " + temp);
+			  if (temp > 255) {
+				  temp = 255;
+			  }
+			  if (temp < 0) {
+				  temp = 0;
+			  }
+
+			   bytes[i] = (byte) (temp);
 		   }
 	   }
 	   
@@ -225,8 +235,8 @@ public class EncodeDecode
 				   c_u = (u == 0) ? (1/Math.sqrt(2)) : 1; 
 				   for (int v = 0; v < 8; ++v) {
 					   c_v = (v == 0) ? (1/Math.sqrt(2)) : 1;
-					   int sigBitstemp = (int) dct[u][v];
-					   int sigBits =  sigBitstemp >> bit; // gets bits
+					   int sigBitstemp =  (int) dct[u][v];
+					   int sigBits = sigBitstemp >> bit; // gets bits
 //					   int sigBits = (int) dct[u][v];
 //					   int mask = 0x8000;
 //					   for (int m = 1; m < bit; ++m) {
@@ -240,7 +250,17 @@ public class EncodeDecode
 							   	* Math.cos( ((2.0*(double)y+1.0)*(double)v*Math.PI) / 16.0);
 				   }
 			   }
-			   bytes[i] = (byte) (1.0/4.0 * summed);
+			   // Clamping
+			   int temp = (int) ((1.0 / 4.0) * summed);
+			//  System.out.print("new byte " + temp);
+			  if (temp > 255) {
+				  temp = 255;
+			  }
+			  if (temp < 0) {
+				  temp = 0;
+			  }
+
+			   bytes[i] = (byte) (temp);
 		   }
 		   
 	   }
@@ -336,6 +356,7 @@ public class EncodeDecode
 	    
 	    label2 = new JLabel(new ImageIcon(jpeg));
 	    label2.setPreferredSize(new Dimension(width, height));
+	    //label2.addMouseListener(this);
 	    frame.getContentPane().add(label2, BorderLayout.EAST);
 
 	    // Bottons
@@ -453,7 +474,7 @@ public class EncodeDecode
 		   // decode the block
 		   RBlocks[ind].Dequantize(quantizationLevel);
 		   RBlocks[ind].InverseDCTSequential();
-		   GBlocks[ind].Dequantize(quantizationLevel);
+		  GBlocks[ind].Dequantize(quantizationLevel);
 		   GBlocks[ind].InverseDCTSequential();
 		   BBlocks[ind].Dequantize(quantizationLevel);
 		   BBlocks[ind].InverseDCTSequential();
@@ -477,6 +498,7 @@ public class EncodeDecode
 //					   r = 127;
 //				   }
 				   byte b = BBlocks[ind].bytes[bi];
+				   //System.out.println("b: " + (b & 0xff));
 //				   if (b < -128) {
 //					   b = -128;
 //				   } else if ( b > 127){
@@ -649,5 +671,37 @@ public class EncodeDecode
 				}
 			);
 		}
+		public void mouseClicked(MouseEvent arg0) {
+			// TODO Auto-generated method stub
+			System.out.println(arg0.getX() + " and " + arg0.getY());
+		}
+	}
+
+
+
+	@Override
+	public void mouseClicked(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseEntered(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseExited(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mousePressed(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
+	}
+	@Override
+	public void mouseReleased(MouseEvent arg0) {
+		// TODO Auto-generated method stub
+		
 	}
 }
